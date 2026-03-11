@@ -4,47 +4,82 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>On This Day in History</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=EB+Garamond:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'EB Garamond', serif;
+            margin: 0;
+            min-height: 100vh;
+            background: 
+                linear-gradient(rgba(245, 240, 225, 0.92), rgba(245, 240, 225, 0.75)),
+                url('https://images.pexels.com/photos/247671/pexels-photo-247671.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2') center/cover no-repeat fixed;
+            background-blend-mode: overlay;
+            color: #3c2f2f;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-            text-align: center;
             padding: 20px;
+            box-sizing: border-box;
         }
         #fact-container {
-            max-width: 80%;
-            background: white;
-            padding: 20px;
+            max-width: 720px;
+            background: #f9f5e8; /* warm parchment */
+            padding: 50px 60px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 
+                0 10px 30px rgba(60, 47, 47, 0.15),
+                inset 0 0 40px rgba(139, 69, 19, 0.08);
+            position: relative;
+            border: 1px solid rgba(139, 69, 19, 0.15);
+        }
+        #fact-container::before {
+            content: "";
+            position: absolute;
+            inset: -20px;
+            background: radial-gradient(circle at 30% 70%, rgba(255,255,240,0.4) 0%, transparent 70%);
+            pointer-events: none;
         }
         h1 {
-            font-size: 1.5em;
+            font-family: 'Cinzel', serif;
+            font-size: 2.8rem;
+            color: #8b4513; /* rich brown-red for history feel */
+            margin: 0 0 0.5rem;
+            text-align: center;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
         }
-        p {
-            font-size: 1.2em;
+        #date-header {
+            font-size: 1.6rem;
+            color: #5c4033;
+            text-align: center;
+            margin: 0 0 1.8rem;
+            font-style: italic;
+            letter-spacing: 0.5px;
+        }
+        #fact {
+            font-size: 1.4rem;
+            line-height: 1.7;
+            margin: 1.5rem 0;
+            color: #2f1f0f;
         }
         #loading {
-            font-size: 1.2em;
+            font-size: 1.3rem;
+            color: #6b5e4e;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div id="fact-container">
         <h1>On This Day in History</h1>
+        <div id="date-header"></div>
         <p id="fact"></p>
-        <div id="loading">Loading your fact...</div>
+        <div id="loading">Loading your historical moment...</div>
     </div>
 
     <script>
-        // Function to shuffle an array (Fisher-Yates shuffle)
+        // Function to shuffle an array (Fisher-Yates)
         function shuffleArray(array) {
-            const shuffled = array.slice(); // Copy
+            const shuffled = array.slice();
             for (let i = shuffled.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -52,26 +87,28 @@
             return shuffled;
         }
 
-        // Get current date for the key (month-day, ignoring year for "on this day")
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
+        const monthName = now.toLocaleString('default', { month: 'long' });
+        const fullDate = `${monthName} ${day}`;
+
+        // Set the date header
+        document.getElementById('date-header').textContent = `On this day, ${fullDate}...`;
+
         const storageKeyAll = `allEvents_${month}_${day}`;
         const storageKeyRemaining = `remainingEvents_${month}_${day}`;
 
-        // Check if we have data in localStorage
         let allEvents = JSON.parse(localStorage.getItem(storageKeyAll));
         let remainingEvents = JSON.parse(localStorage.getItem(storageKeyRemaining));
 
-        // If no data or remaining is empty/not set, fetch from API
         if (!allEvents || allEvents.length === 0) {
             fetch(`https://history.muffinlabs.com/date/${month}/${day}`)
                 .then(response => response.json())
                 .then(data => {
-                    allEvents = data.data.Events || []; // Focus on Events; you can add Births/Deaths if wanted
+                    allEvents = data.data.Events || [];
                     localStorage.setItem(storageKeyAll, JSON.stringify(allEvents));
 
-                    // Shuffle and set remaining
                     remainingEvents = shuffleArray(allEvents);
                     localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
 
@@ -82,7 +119,6 @@
                     document.getElementById('loading').style.display = 'none';
                 });
         } else {
-            // If remaining is empty, reshuffle from allEvents
             if (!remainingEvents || remainingEvents.length === 0) {
                 remainingEvents = shuffleArray(allEvents);
                 localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
@@ -92,9 +128,8 @@
 
         function displayFact() {
             if (remainingEvents && remainingEvents.length > 0) {
-                // Pop a random fact (since shuffled, just take first)
-                const event = remainingEvents.shift(); // Remove and get first
-                localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents)); // Update storage
+                const event = remainingEvents.shift();
+                localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
 
                 document.getElementById('fact').innerHTML = `In <strong>${event.year}</strong>: ${event.text}`;
                 document.getElementById('loading').style.display = 'none';
