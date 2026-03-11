@@ -42,7 +42,7 @@
         h1 {
             font-family: 'Cinzel', serif;
             font-size: 2.8rem;
-            color: #8b4513; /* rich brown-red for history feel */
+            color: #8b4513; /* rich brown-red */
             margin: 0 0 0.5rem;
             text-align: center;
             text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
@@ -58,13 +58,42 @@
         #fact {
             font-size: 1.4rem;
             line-height: 1.7;
-            margin: 1.5rem 0;
+            margin: 1.5rem 0 2rem;
             color: #2f1f0f;
+        }
+        #controls {
+            text-align: center;
+            margin: 1.5rem 0 2rem;
+        }
+        select {
+            font-family: 'EB Garamond', serif;
+            font-size: 1.2rem;
+            padding: 8px 16px;
+            border: 1px solid #8b4513;
+            border-radius: 6px;
+            background: #fffef0;
+            color: #3c2f2f;
+            cursor: pointer;
         }
         #loading {
             font-size: 1.3rem;
             color: #6b5e4e;
             text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        footer {
+            font-size: 1rem;
+            color: #6b5e4e;
+            text-align: center;
+            line-height: 1.5;
+            margin-top: 2rem;
+            border-top: 1px solid rgba(139, 69, 19, 0.15);
+            padding-top: 1rem;
+        }
+        footer small {
+            display: block;
+            margin-top: 0.5rem;
+            font-style: italic;
         }
     </style>
 </head>
@@ -73,11 +102,30 @@
         <h1>On This Day in History</h1>
         <div id="date-header"></div>
         <p id="fact"></p>
+
+        <div id="controls">
+            <label for="decade">Filter by Decade: </label>
+            <select id="decade">
+                <option value="all">All Decades</option>
+                <option value="ancient">Before 1700</option>
+                <option value="1700">1700s</option>
+                <option value="1800">1800s</option>
+                <option value="1900">1900s</option>
+                <option value="2000">2000s+</option>
+            </select>
+        </div>
+
         <div id="loading">Loading your historical moment...</div>
+
+        <footer>
+            <p>Tap your NFC bracelet again for a new fact.<br>
+            Come back tomorrow for fresh moments from this day in history.</p>
+            <small>Facts sourced from historical records via Wikipedia (muffinlabs API).</small>
+        </footer>
     </div>
 
     <script>
-        // Function to shuffle an array (Fisher-Yates)
+        // Shuffle function
         function shuffleArray(array) {
             const shuffled = array.slice();
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -87,21 +135,42 @@
             return shuffled;
         }
 
+        // Date setup
         const now = new Date();
         const month = now.getMonth() + 1;
         const day = now.getDate();
         const monthName = now.toLocaleString('default', { month: 'long' });
         const fullDate = `${monthName} ${day}`;
 
-        // Set the date header
         document.getElementById('date-header').textContent = `On this day, ${fullDate}...`;
 
+        // Storage keys
         const storageKeyAll = `allEvents_${month}_${day}`;
         const storageKeyRemaining = `remainingEvents_${month}_${day}`;
+        const storageKeyFilter = `decadeFilter_${month}_${day}`;
 
         let allEvents = JSON.parse(localStorage.getItem(storageKeyAll));
         let remainingEvents = JSON.parse(localStorage.getItem(storageKeyRemaining));
+        let currentFilter = localStorage.getItem(storageKeyFilter) || 'all';
 
+        // Set initial filter value
+        document.getElementById('decade').value = currentFilter;
+
+        // Decade filtering logic
+        function getDecade(yearStr) {
+            const yearNum = parseInt(yearStr.replace(/\D/g, ''), 10);
+            if (isNaN(yearNum) || yearNum < 1700) return 'ancient';
+            const century = Math.floor(yearNum / 100) * 100;
+            return century.toString();
+        }
+
+        function filterEvents(events, decade) {
+            if (decade === 'all') return events;
+            if (decade === 'ancient') return events.filter(e => parseInt(e.year.replace(/\D/g, ''), 10) < 1700);
+            return events.filter(e => getDecade(e.year) === decade);
+        }
+
+        // Fetch if needed
         if (!allEvents || allEvents.length === 0) {
             fetch(`https://history.muffinlabs.com/date/${month}/${day}`)
                 .then(response => response.json())
@@ -109,7 +178,9 @@
                     allEvents = data.data.Events || [];
                     localStorage.setItem(storageKeyAll, JSON.stringify(allEvents));
 
-                    remainingEvents = shuffleArray(allEvents);
+                    // Initial filter & shuffle
+                    const filtered = filterEvents(allEvents, currentFilter);
+                    remainingEvents = shuffleArray(filtered.length > 0 ? filtered : allEvents);
                     localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
 
                     displayFact();
@@ -119,23 +190,40 @@
                     document.getElementById('loading').style.display = 'none';
                 });
         } else {
+            // Apply current filter if events exist
             if (!remainingEvents || remainingEvents.length === 0) {
-                remainingEvents = shuffleArray(allEvents);
+                const filtered = filterEvents(allEvents, currentFilter);
+                remainingEvents = shuffleArray(filtered.length > 0 ? filtered : allEvents);
                 localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
             }
             displayFact();
         }
 
+        // Filter change handler
+        document.getElementById('decade').addEventListener('change', (e) => {
+            currentFilter = e.target.value;
+            localStorage.setItem(storageKeyFilter, currentFilter);
+
+            const filtered = filterEvents(allEvents, currentFilter);
+            remainingEvents = shuffleArray(filtered.length > 0 ? filtered : allEvents);
+            localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
+
+            displayFact();
+        });
+
         function displayFact() {
+            const factEl = document.getElementById('fact');
+            const loadingEl = document.getElementById('loading');
+
             if (remainingEvents && remainingEvents.length > 0) {
                 const event = remainingEvents.shift();
                 localStorage.setItem(storageKeyRemaining, JSON.stringify(remainingEvents));
 
-                document.getElementById('fact').innerHTML = `In <strong>${event.year}</strong>: ${event.text}`;
-                document.getElementById('loading').style.display = 'none';
+                factEl.innerHTML = `In <strong>${event.year}</strong>: ${event.text}`;
+                loadingEl.style.display = 'none';
             } else {
-                document.getElementById('fact').textContent = 'No more facts available today. Try again tomorrow!';
-                document.getElementById('loading').style.display = 'none';
+                factEl.textContent = 'No more facts available for this filter today. Try another decade or come back tomorrow!';
+                loadingEl.style.display = 'none';
             }
         }
     </script>
